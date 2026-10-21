@@ -1,0 +1,147 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: Firebase Auth UID
+    // Fields:
+    //   - uid: string (required, immutable) - Firebase Auth UID
+    //   - displayName: string (required, 1-100 chars) - Band member name
+    //   - role: string (required) - "author" or "admin"
+    //   - instrument: string (required, 1-100 chars) - Instrument played
+    //   - bio: string (required, 1-2000 chars) - Short biography
+    //   - photoURL: string (optional, 1-500 chars) - Profile photo URL
+    //   - createdAt: timestamp (required, immutable)
+    //
+    // Collection: posts
+    // Document ID: auto-generated
+    // Fields:
+    //   - title: string (required, 1-200 chars) - Post title
+    //   - slug: string (required, 1-200 chars) - URL slug
+    //   - content: string (required, 1-50000 chars) - Full text
+    //   - excerpt: string (required, 1-500 chars) - Summary
+    //   - authorUid: string (required, immutable) - Author's UID
+    //   - authorName: string (required, 1-100 chars) - Denormalized
+    //   - coverImageURL: string (optional, 0-500 chars) - Cover image
+    //   - status: string (required) - "draft" or "published"
+    //   - createdAt: timestamp (required, immutable)
+    //   - updatedAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function validStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
+    }
+
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUserProfile(data) {
+      return hasOnlyAllowedFields(['uid', 'displayName', 'role', 'instrument', 'bio', 'photoURL', 'createdAt']) &&
+             hasRequiredFields(['uid', 'displayName', 'role', 'instrument', 'bio', 'createdAt']) &&
+             data.uid is string && data.uid.size() > 0 && data.uid.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+             data.role is string && data.role in ['author', 'admin'] &&
+             data.instrument is string && data.instrument.size() >= 1 && data.instrument.size() <= 100 &&
+             data.bio is string && data.bio.size() >= 1 && data.bio.size() <= 2000 &&
+             data.createdAt is timestamp &&
+             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 500));
+    }
+
+    function isValidPost(data) {
+      return hasOnlyAllowedFields(['title', 'slug', 'content', 'excerpt', 'authorUid', 'authorName', 'coverImageURL', 'status', 'createdAt', 'updatedAt']) &&
+             hasRequiredFields(['title', 'slug', 'content', 'excerpt', 'authorUid', 'authorName', 'status', 'createdAt', 'updatedAt']) &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+             data.slug is string && data.slug.size() >= 1 && data.slug.size() <= 200 &&
+             data.content is string && data.content.size() >= 1 && data.content.size() <= 50000 &&
+             data.excerpt is string && data.excerpt.size() >= 1 && data.excerpt.size() <= 500 &&
+             data.authorUid is string && data.authorUid.size() > 0 && data.authorUid.size() <= 128 &&
+             data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 100 &&
+             data.status is string && data.status in ['draft', 'published'] &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp &&
+             (!('coverImageURL' in data) || (data.coverImageURL is string && data.coverImageURL.size() <= 500));
+    }
+
+    // ===============================================================
+    // Rules: users collection
+    // ===============================================================
+    match /users/{userId} {
+      // Anyone can read public band member profiles (no PII stored here)
+      allow read: if true;
+
+      // Only the user themselves can create their profile, and role must be 'author' (not 'admin')
+      // Admin role must be bootstrapped manually via Firebase console/emulator
+      allow create: if isOwner(userId) &&
+                       isValidUserProfile(request.resource.data) &&
+                       request.resource.data.uid == request.auth.uid &&
+                       request.resource.data.role == 'author';
+
+      // Only the user can update their own profile
+      // Cannot change: uid, createdAt, role
+      allow update: if isOwner(userId) &&
+                       isValidUserProfile(request.resource.data) &&
+                       areImmutableFieldsUnchanged(['uid', 'createdAt', 'role']);
+
+      // No one can delete user profiles from client
+      allow delete: if false;
+    }
+
+    // ===============================================================
+    // Rules: posts collection
+    // ===============================================================
+    match /posts/{postId} {
+      // Anyone can read published posts
+      allow read: if resource.data.status == 'published';
+
+      // Authenticated authors can read their own drafts
+      allow read: if isAuthenticated() && resource.data.authorUid == request.auth.uid;
+
+      // Authenticated users can create posts (must be their own)
+      allow create: if isAuthenticated() &&
+                       isValidPost(request.resource.data) &&
+                       request.resource.data.authorUid == request.auth.uid;
+
+      // Only the author can update their own post
+      // Cannot change: authorUid, createdAt
+      allow update: if isAuthenticated() &&
+                       resource.data.authorUid == request.auth.uid &&
+                       isValidPost(request.resource.data) &&
+                       areImmutableFieldsUnchanged(['authorUid', 'createdAt']);
+
+      // Only the author can delete their own post
+      allow delete: if isAuthenticated() && resource.data.authorUid == request.auth.uid;
+    }
+  }
+}
