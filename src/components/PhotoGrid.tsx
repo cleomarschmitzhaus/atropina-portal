@@ -20,8 +20,8 @@ export function PhotoGrid({ images }: PhotoGridProps) {
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {images.map((src, index) => (
-          <div 
-            key={index}
+          <div
+            key={src || index}
             className="relative aspect-square overflow-hidden cursor-pointer bg-[#050505] border border-[#1a1a1a] hover:border-[#c8ff00] hover:shadow-[0_0_15px_rgba(200,255,0,0.15)] transition-all duration-300 group"
             onClick={() => setSelectedImage(src)}
           >
@@ -33,46 +33,45 @@ export function PhotoGrid({ images }: PhotoGridProps) {
             />
             {/* Dark red grain overlay */}
             <div className="absolute inset-0 bg-[#8b0000]/5 opacity-30 group-hover:opacity-0 transition-opacity duration-300" />
-            <div className="absolute bottom-3 left-3 bg-[#0a0a0a]/85 border border-[#1a1a1a] px-2 py-0.5 text-[9px] font-mono text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity">
-              IMG_REF: {index + 1}
-            </div>
           </div>
         ))}
       </div>
 
       {/* Lightbox */}
-      {selectedImage && typeof document !== 'undefined' && createPortal(
-        <div 
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999999 }}
-          className="flex flex-col items-center justify-center bg-black/98 p-4"
-        >
-          {/* Fixed Close Button */}
-          <button 
+      {selectedImage &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999999 }}
+            className="flex flex-col items-center justify-center bg-black/98 p-4"
             onClick={() => setSelectedImage(null)}
-            style={{ position: 'absolute', top: '24px', right: '24px', zIndex: 999999 }}
-            className="text-[#c8ff00] hover:text-[#c8ff00] bg-[#0a0a0a]/80 p-3 border border-[#333] hover:border-[#c8ff00] transition-all flex items-center gap-2 cursor-pointer"
-            aria-label="Fechar"
           >
-            <span className="font-heading tracking-widest text-lg hidden sm:block">FECHAR</span>
-            <X size={24} />
-          </button>
-          
-          <div className="w-full max-w-5xl flex items-center justify-start mb-4 px-2 font-mono text-[10px] text-neutral-500 border-b border-[#1a1a1a] pb-2 relative z-10">
-            <span>VISUALIZADOR // CONEXÃO_DIRETA</span>
-          </div>
-          
-          <div className="relative w-full max-w-5xl h-[75vh] border border-[#1a1a1a] p-1 bg-[#050505] z-10">
-            <Image
-              src={selectedImage}
-              alt="Foto ampliada"
-              fill
-              className="object-contain p-2"
-              priority
-            />
-          </div>
-        </div>,
-        document.body
-      )}
+            {/* Fixed Close Button */}
+            <button
+              onClick={() => setSelectedImage(null)}
+              style={{ position: 'absolute', top: '24px', right: '24px', zIndex: 999999 }}
+              className="text-[#c8ff00] hover:text-[#c8ff00] bg-[#0a0a0a]/80 p-3 border border-[#333] hover:border-[#c8ff00] transition-all flex items-center gap-2 cursor-pointer"
+              aria-label="Fechar"
+            >
+              <span className="font-heading tracking-widest text-lg hidden sm:block">FECHAR</span>
+              <X size={24} />
+            </button>
+
+            <div
+              className="relative w-full max-w-5xl h-[80vh] border border-[#1a1a1a] p-1 bg-[#050505] z-10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Image
+                src={selectedImage}
+                alt="Foto ampliada"
+                fill
+                className="object-contain p-2"
+                priority
+              />
+            </div>
+          </div>,
+          document.body
+        )}
     </>
   );
 }

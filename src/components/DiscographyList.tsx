@@ -40,11 +40,6 @@ export default function DiscographyList() {
           key={album.id || album.title + index}
           className="bg-[#0f0f0f]/50 border border-[#1a1a1a] p-6 md:p-8 flex flex-col md:flex-row gap-8 hover:border-[#8b0000]/60 hover:shadow-[0_0_25px_rgba(139,0,0,0.2)] transition-all duration-300 rounded-sm relative overflow-hidden group"
         >
-          {/* Identificador de catálogo cronológico */}
-          <div className="absolute top-3 right-3 text-[10px] font-mono text-neutral-600 tracking-wider">
-            ID: ATRP_{String(index + 1).padStart(2, '0')}
-          </div>
-
           {/* Capa do Álbum (Real do Drive ou Fallback estilizado) */}
           <div className="w-full md:w-52 h-52 bg-[#050505] border border-[#262626] group-hover:border-[#c8ff00] shrink-0 flex items-center justify-center relative overflow-hidden shadow-md transition-all">
             {album.coverUrl ? (
