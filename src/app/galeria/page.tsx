@@ -2,34 +2,33 @@
 
 import { useEffect, useState } from 'react';
 import { PhotoGrid } from '@/components/PhotoGrid';
+import { fetchGalleryImageUrls } from '@/lib/gallery';
 
 export default function GaleriaPage() {
   const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
     async function loadImages() {
       try {
-        const res = await fetch('https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnSE3CKWZsr3WceVHCpWrOwW-Sv11mg05bs4NyAYw6sRqz6Xq58-8ZbRhppLjEoW6g603CUT07uPtCnDUHDvWHUQBslX4b6HIRQhP4-ecwKKlgYKrIpQFxD9OTUPAKt7a_zPZlF0hqMTzSqVI_3QD-E9ZT9X6HC4tpUNYohTgAC3H3F9yKz9erq_k3mjoAvtbExycRFOHMQQyaRYoop-MsD8fDRXzwwjzk2Bg_5vtw2KIIYOzQBn0N1BCJrQp6YK0qhxX-VVJjPQ6jTohc8eqVEgW-iKsw&lib=Mpl-8RFm9o06wAVCtsTr2tCtfeZesi9Pz');
-        const data = await res.json();
-        
-        let urls: string[] = [];
-        if (Array.isArray(data)) {
-          urls = data.map((img: any) => img.url);
-        } else if (data && Array.isArray(data.data)) {
-          urls = data.data.map((img: any) => img.url);
-        }
-        
-        if (urls.length > 0) {
+        const urls = await fetchGalleryImageUrls();
+        if (isMounted && urls.length > 0) {
           setImages(urls);
         }
       } catch (error) {
         console.error('Failed to load images:', error);
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     }
     loadImages();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (
@@ -48,7 +47,7 @@ export default function GaleriaPage() {
       ) : images.length > 0 ? (
         <PhotoGrid images={images} />
       ) : (
-        <div className="bg-[#141414]/40  border border-[#333] p-12 text-center rounded-sm">
+        <div className="bg-[#141414]/40 border border-[#333] p-12 text-center rounded-sm">
           <p className="text-[#c8ff00]/80 mb-8">
             Envie fotos pelo painel admin para populá-las aqui.
           </p>

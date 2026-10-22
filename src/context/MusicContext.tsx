@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Track, Album } from '@/types';
-import { SAMPLE_TRACKS, MUSIC_SCRIPT_URL } from '@/lib/constants';
+import { SAMPLE_TRACKS, MUSIC_SCRIPT_URL, DISCOGRAPHY } from '@/lib/constants';
 import { toStreamableSrc } from '@/lib/drive';
 
 interface MusicContextType {
@@ -10,6 +10,8 @@ interface MusicContextType {
   isPlaying: boolean;
   isBuffering: boolean;
   playlist: Track[];
+  albums: Album[];
+  isLoadingAlbums: boolean;
   isMinimized: boolean;
   setIsMinimized: (val: boolean | ((prev: boolean) => boolean)) => void;
   playTrack: (track: Track, newPlaylist?: Track[]) => void;
@@ -30,7 +32,7 @@ const ALBUM_METADATA: Record<string, { year: string; type: string; order: number
   'prego em carne podre': { year: '2021', type: 'Full-length', order: 6 },
 };
 
-function getAlbumInfo(title: string) {
+export function getAlbumInfo(title: string) {
   const lower = title.toLowerCase();
   for (const [key, data] of Object.entries(ALBUM_METADATA)) {
     if (lower.includes(key)) {
@@ -40,52 +42,116 @@ function getAlbumInfo(title: string) {
   return { year: '', type: 'Lançamento', order: 99 };
 }
 
-function cleanTrackTitle(title: string): string {
+export function cleanTrackTitle(title: string): string {
   return title.replace(/^Atropina\s*-\s*.*?\s*-\s*/i, '').trim();
 }
+
+const DISCOGRAPHY_CACHE_KEY = 'atropina_discography_v1';
+
+const FALLBACK_ALBUMS: Album[] = DISCOGRAPHY.map((item) => ({
+  title: item.title,
+  type: item.type,
+  year: item.year,
+  tracks: [],
+}));
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
 
 export function MusicProvider({ children }: { children: ReactNode }) {
   const [playlist, setPlaylist] = useState<Track[]>(SAMPLE_TRACKS);
+  const [albums, setAlbums] = useState<Album[]>([]);
+  const [isLoadingAlbums, setIsLoadingAlbums] = useState<boolean>(true);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [isMinimized, setIsMinimized] = useState(true);
 
-  // Carrega as músicas do Google Drive logo na inicialização da aplicação
+  // Carrega a discografia e as músicas do Google Drive uma única vez com cache em sessionStorage
   useEffect(() => {
-    if (!MUSIC_SCRIPT_URL) return;
+    if (!MUSIC_SCRIPT_URL) {
+      setAlbums(FALLBACK_ALBUMS);
+      setIsLoadingAlbums(false);
+      return;
+    }
 
-    fetch(MUSIC_SCRIPT_URL)
-      .then((res) => res.json())
-      .then((data: Album[]) => {
-        if (Array.isArray(data) && data.length > 0) {
-          const sortedAlbums = [...data].sort((a, b) => {
-            return getAlbumInfo(a.title).order - getAlbumInfo(b.title).order;
-          });
+    const controller = new AbortController();
 
-          const loadedTracks: Track[] = [];
-          sortedAlbums.forEach((album) => {
-            if (album.tracks && album.tracks.length > 0) {
-              album.tracks.forEach((t) => {
-                loadedTracks.push({
+    async function loadDiscography() {
+      try {
+        setIsLoadingAlbums(true);
+        let rawData: Album[] | null = null;
+
+        try {
+          const cached = sessionStorage.getItem(DISCOGRAPHY_CACHE_KEY);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              rawData = parsed;
+            }
+          }
+        } catch {
+          // Ignora erros de leitura do sessionStorage
+        }
+
+        if (!rawData) {
+          const res = await fetch(MUSIC_SCRIPT_URL, { signal: controller.signal });
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+          }
+          const fetched = await res.json();
+          if (Array.isArray(fetched) && fetched.length > 0) {
+            rawData = fetched;
+            try {
+              sessionStorage.setItem(DISCOGRAPHY_CACHE_KEY, JSON.stringify(fetched));
+            } catch {
+              // Ignora erros de quota do sessionStorage
+            }
+          }
+        }
+
+        if (Array.isArray(rawData) && rawData.length > 0) {
+          const normalizedAlbums = rawData
+            .map((album: Album) => {
+              const meta = getAlbumInfo(album.title);
+              return {
+                ...album,
+                year: album.year || meta.year,
+                type: album.type || meta.type,
+                order: meta.order,
+                tracks: (album.tracks || []).map((t: Track) => ({
                   ...t,
                   title: cleanTrackTitle(t.title),
                   src: toStreamableSrc(t.src, t.id),
                   album: album.title,
                   coverUrl: t.coverUrl || album.coverUrl,
-                });
-              });
-            }
-          });
+                })),
+              };
+            })
+            .sort((a, b) => (a.order || 99) - (b.order || 99));
 
+          setAlbums(normalizedAlbums);
+
+          const loadedTracks: Track[] = normalizedAlbums.flatMap((album) => album.tracks || []);
           if (loadedTracks.length > 0) {
             setPlaylist(loadedTracks);
           }
+        } else {
+          setAlbums(FALLBACK_ALBUMS);
         }
-      })
-      .catch((err) => console.error('Erro ao carregar músicas do Drive:', err));
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        console.error('Erro ao carregar músicas do Drive:', err);
+        setAlbums(FALLBACK_ALBUMS);
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoadingAlbums(false);
+        }
+      }
+    }
+
+    loadDiscography();
+
+    return () => controller.abort();
   }, []);
 
   const currentTrack = playlist.length > 0 ? playlist[currentTrackIndex] || playlist[0] : null;
@@ -137,6 +203,8 @@ export function MusicProvider({ children }: { children: ReactNode }) {
         isPlaying,
         isBuffering,
         playlist,
+        albums,
+        isLoadingAlbums,
         isMinimized,
         setIsMinimized,
         playTrack,

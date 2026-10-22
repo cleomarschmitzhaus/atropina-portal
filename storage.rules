@@ -1,37 +1,45 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Gallery images - anyone can read, only authenticated users can write
+    // Gallery images - anyone can read, only authenticated users can upload
     match /gallery/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null
-                   && request.resource.size < 10 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*');
+      allow create, update: if request.auth != null
+                            && request.resource != null
+                            && request.resource.size < 10 * 1024 * 1024
+                            && request.resource.contentType.matches('image/.*');
+      allow delete: if false;
     }
 
-    // Post cover images - anyone can read, only authenticated users can write
+    // Post cover images - anyone can read, only authenticated users can upload
     match /posts/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null
-                   && request.resource.size < 10 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*');
+      allow create, update: if request.auth != null
+                            && request.resource != null
+                            && request.resource.size < 10 * 1024 * 1024
+                            && request.resource.contentType.matches('image/.*');
+      allow delete: if false;
     }
 
     // User profile photos
     match /users/{userId}/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null
-                   && request.auth.uid == userId
-                   && request.resource.size < 5 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*');
+      allow create, update: if request.auth != null
+                            && request.auth.uid == userId
+                            && request.resource != null
+                            && request.resource.size < 5 * 1024 * 1024
+                            && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
     // Audio files - anyone can read, only authenticated users can upload
     match /audio/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null
-                   && request.resource.size < 50 * 1024 * 1024
-                   && request.resource.contentType.matches('audio/.*');
+      allow create, update: if request.auth != null
+                            && request.resource != null
+                            && request.resource.size < 50 * 1024 * 1024
+                            && request.resource.contentType.matches('audio/.*');
+      allow delete: if false;
     }
 
     // Default: deny all

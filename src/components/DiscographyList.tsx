@@ -1,103 +1,13 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import Image from 'next/image';
-import { Play, Pause, Volume2, Disc, Music, Loader2 } from 'lucide-react';
+import { Play, Volume2, Disc, Music, Loader2 } from 'lucide-react';
 import { useMusic } from '@/context/MusicContext';
-import { DISCOGRAPHY, MUSIC_SCRIPT_URL } from '@/lib/constants';
-import { Album, Track } from '@/types';
-import { toStreamableSrc } from '@/lib/drive';
-
-// Metadados e ordenação cronológica oficial da horda Atropina
-const ALBUM_METADATA: Record<string, { year: string; type: string; order: number }> = {
-  'louvar a tudo por nada': { year: '1998', type: 'Demo / Remaster', order: 1 },
-  'santos de porcelana': { year: '2001', type: 'Full-length', order: 2 },
-  'legis edax': { year: '2005', type: 'EP / Side Project', order: 3 },
-  'mallevs maleficarvm': { year: '2014', type: 'Full-length', order: 4 },
-  'porões das luxúrias': { year: '2016', type: 'Full-length', order: 5 },
-  'prego em carne podre': { year: '2021', type: 'Full-length', order: 6 },
-};
-
-function getAlbumInfo(title: string) {
-  const lower = title.toLowerCase();
-  for (const [key, data] of Object.entries(ALBUM_METADATA)) {
-    if (lower.includes(key)) {
-      return data;
-    }
-  }
-  return { year: '', type: 'Lançamento', order: 99 };
-}
-
-function cleanTrackTitle(title: string): string {
-  return title.replace(/^Atropina\s*-\s*.*?\s*-\s*/i, '').trim();
-}
+import { Track } from '@/types';
 
 export default function DiscographyList() {
-  const { currentTrack, isPlaying, isBuffering, playTrack, togglePlay } = useMusic();
-  const [albums, setAlbums] = useState<Album[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    if (!MUSIC_SCRIPT_URL) {
-      setAlbums(
-        DISCOGRAPHY.map((item) => ({
-          title: item.title,
-          type: item.type,
-          year: item.year,
-          tracks: [],
-        }))
-      );
-      return;
-    }
-
-    setIsLoading(true);
-    fetch(MUSIC_SCRIPT_URL)
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          const cleaned = data
-            .map((album: Album) => {
-              const meta = getAlbumInfo(album.title);
-              return {
-                ...album,
-                year: album.year || meta.year,
-                type: album.type || meta.type,
-                order: meta.order,
-                tracks: (album.tracks || []).map((t: Track) => ({
-                  ...t,
-                  title: cleanTrackTitle(t.title),
-                  src: toStreamableSrc(t.src, t.id),
-                })),
-              };
-            })
-            // Garante ordenação cronológica exata: Louvar a Tudo por Nada -> Santos de Porcelana -> ...
-            .sort((a, b) => (a.order || 99) - (b.order || 99));
-
-          setAlbums(cleaned);
-        } else {
-          setAlbums(
-            DISCOGRAPHY.map((item) => ({
-              title: item.title,
-              type: item.type,
-              year: item.year,
-              tracks: [],
-            }))
-          );
-        }
-      })
-      .catch((err) => {
-        console.error('Falha ao carregar álbuns do Google Drive:', err);
-        setAlbums(
-          DISCOGRAPHY.map((item) => ({
-            title: item.title,
-            type: item.type,
-            year: item.year,
-            tracks: [],
-          }))
-        );
-      })
-      .finally(() => setIsLoading(false));
-  }, []);
+  const { currentTrack, isPlaying, isBuffering, albums, isLoadingAlbums, playTrack, togglePlay } = useMusic();
 
   // Lista com todas as músicas de todos os álbuns combinadas para a playlist contínua
   const allTracks = useMemo(() => {
@@ -118,7 +28,7 @@ export default function DiscographyList() {
 
   return (
     <div className="relative z-10 space-y-8">
-      {isLoading && (
+      {isLoadingAlbums && (
         <div className="flex items-center justify-center p-8 text-[#c8ff00] font-mono text-sm tracking-widest animate-pulse">
           <Disc size={20} className="animate-spin mr-3 text-[#8b0000]" />
           CARREGANDO DISCOGRAFIA E ÁUDIOS DO DRIVE...

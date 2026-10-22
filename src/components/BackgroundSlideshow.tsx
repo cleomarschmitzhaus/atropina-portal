@@ -1,13 +1,11 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { preloadImages } from '@/lib/preloadImages';
+import { fetchGalleryImageUrls, shuffleArray } from '@/lib/gallery';
 
 export { preloadImages };
-
-const GOOGLE_SCRIPT_URL =
-  'https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnSE3CKWZsr3WceVHCpWrOwW-Sv11mg05bs4NyAYw6sRqz6Xq58-8ZbRhppLjEoW6g603CUT07uPtCnDUHDvWHUQBslX4b6HIRQhP4-ecwKKlgYKrIpQFxD9OTUPAKt7a_zPZlF0hqMTzSqVI_3QD-E9ZT9X6HC4tpUNYohTgAC3H3F9yKz9erq_k3mjoAvtbExycRFOHMQQyaRYoop-MsD8fDRXzwwjzk2Bg_5vtw2KIIYOzQBn0N1BCJrQp6YK0qhxX-VVJjPQ6jTohc8eqVEgW-iKsw&lib=Mpl-8RFm9o06wAVCtsTr2tCtfeZesi9Pz';
 
 export function BackgroundSlideshow() {
   const [images, setImages] = useState<string[]>([]);
@@ -17,10 +15,13 @@ export function BackgroundSlideshow() {
   const [showLoader, setShowLoader] = useState(true);
   const [isFading, setIsFading] = useState(false);
   const [progress, setProgress] = useState(0);
+
   const finishedRef = useRef(false);
+  const fadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const completeDelayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Função para finalizar o carregamento com fade-out suave e remoção do DOM
-  const finishLoading = () => {
+  const finishLoading = useCallback(() => {
     if (finishedRef.current) return;
     finishedRef.current = true;
 
@@ -28,15 +29,17 @@ export function BackgroundSlideshow() {
     setIsFading(true);
 
     // Remove completamente do DOM após a conclusão da animação (700ms)
-    setTimeout(() => {
+    fadeTimeoutRef.current = setTimeout(() => {
       setShowLoader(false);
       if (typeof document !== 'undefined') {
         document.body.style.overflow = '';
       }
     }, 700);
-  };
+  }, []);
 
   useEffect(() => {
+    let isMounted = true;
+
     // Trava a rolagem durante a tela de carregamento
     if (typeof document !== 'undefined') {
       document.body.style.overflow = 'hidden';
@@ -44,36 +47,30 @@ export function BackgroundSlideshow() {
 
     // Limite de tempo de segurança (6 segundos) para evitar travar o usuário
     const safetyTimeout = setTimeout(() => {
-      if (!finishedRef.current) {
+      if (!finishedRef.current && isMounted) {
         console.warn('Preloader: limite de tempo de segurança atingido (6s). Liberando interface.');
         finishLoading();
       }
     }, 6000);
 
-    // Busca dinâmica das URLs de imagens no Google Drive
-    fetch(GOOGLE_SCRIPT_URL)
-      .then((res) => res.json())
-      .then(async (data) => {
-        let urls: string[] = [];
-        if (Array.isArray(data)) {
-          urls = data.map((img: any) => img.url).filter(Boolean);
-        } else if (data && Array.isArray(data.data)) {
-          urls = data.data.map((img: any) => img.url).filter(Boolean);
-        }
+    // Busca compartilhada das URLs de imagens (com cache e fallback offline)
+    fetchGalleryImageUrls()
+      .then(async (urls) => {
+        if (!isMounted) return;
 
-        if (urls.length === 0) {
+        if (!urls || urls.length === 0) {
           finishLoading();
           return;
         }
 
-        // Embaralha e seleciona as imagens para o slide de fundo
-        const shuffled = [...urls].sort(() => 0.5 - Math.random());
-        const slideImages = shuffled.slice(0, 8);
+        // Embaralha com Fisher-Yates e seleciona até 8 imagens para o slide de fundo
+        const slideImages = shuffleArray(urls).slice(0, 8);
         setImages(slideImages);
 
         // Pré-carrega todas as imagens selecionadas via Image() e Promise.all
         try {
           await preloadImages(slideImages, (loaded, total) => {
+            if (!isMounted) return;
             const percent = Math.round((loaded / total) * 100);
             setProgress(percent);
           });
@@ -81,23 +78,32 @@ export function BackgroundSlideshow() {
           console.error('Erro durante pré-carregamento:', err);
         }
 
+        if (!isMounted) return;
+
         // Breve pausa para exibir 100% antes de iniciar o fade-out
-        setTimeout(() => {
-          finishLoading();
+        completeDelayTimeoutRef.current = setTimeout(() => {
+          if (isMounted) {
+            finishLoading();
+          }
         }, 200);
       })
       .catch((err) => {
         console.error('Falha ao obter lista de imagens do Drive:', err);
-        finishLoading();
+        if (isMounted) {
+          finishLoading();
+        }
       });
 
     return () => {
+      isMounted = false;
       clearTimeout(safetyTimeout);
+      if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);
+      if (completeDelayTimeoutRef.current) clearTimeout(completeDelayTimeoutRef.current);
       if (typeof document !== 'undefined') {
         document.body.style.overflow = '';
       }
     };
-  }, []);
+  }, [finishLoading]);
 
   // Transição automática das imagens do slide a cada 5 segundos
   useEffect(() => {

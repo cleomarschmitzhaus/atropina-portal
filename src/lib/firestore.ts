@@ -52,8 +52,11 @@ export async function getUserPosts(authorUid: string): Promise<Post[]> {
 
 export async function createPost(post: Omit<Post, 'id' | 'createdAt' | 'updatedAt'>) {
   const now = Timestamp.now();
+  const cleanPost = Object.fromEntries(
+    Object.entries(post).filter(([, value]) => value !== undefined && value !== '')
+  );
   return addDoc(collection(db, 'posts'), {
-    ...post,
+    ...cleanPost,
     createdAt: now,
     updatedAt: now,
   });
@@ -61,8 +64,11 @@ export async function createPost(post: Omit<Post, 'id' | 'createdAt' | 'updatedA
 
 export async function updatePost(postId: string, data: Partial<Post>) {
   const ref = doc(db, 'posts', postId);
+  const cleanData = Object.fromEntries(
+    Object.entries(data).filter(([, value]) => value !== undefined)
+  );
   return updateDoc(ref, {
-    ...data,
+    ...cleanData,
     updatedAt: Timestamp.now(),
   });
 }

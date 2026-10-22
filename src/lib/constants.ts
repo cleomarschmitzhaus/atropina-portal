@@ -6,6 +6,21 @@ export const MUSIC_SCRIPT_URL =
   process.env.NEXT_PUBLIC_MUSIC_SCRIPT_URL ||
   'https://script.google.com/macros/s/AKfycbzhwtdXRtZVIQh1xtgG9NYzzGe7xbZlpVwnLKeh9V_Sdohgk1uVS1gm8ZQ-Cl_n0UBsyQ/exec';
 
+export const GALLERY_SCRIPT_URL =
+  process.env.NEXT_PUBLIC_GALLERY_SCRIPT_URL ||
+  'https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnSE3CKWZsr3WceVHCpWrOwW-Sv11mg05bs4NyAYw6sRqz6Xq58-8ZbRhppLjEoW6g603CUT07uPtCnDUHDvWHUQBslX4b6HIRQhP4-ecwKKlgYKrIpQFxD9OTUPAKt7a_zPZlF0hqMTzSqVI_3QD-E9ZT9X6HC4tpUNYohTgAC3H3F9yKz9erq_k3mjoAvtbExycRFOHMQQyaRYoop-MsD8fDRXzwwjzk2Bg_5vtw2KIIYOzQBn0N1BCJrQp6YK0qhxX-VVJjPQ6jTohc8eqVEgW-iKsw&lib=Mpl-8RFm9o06wAVCtsTr2tCtfeZesi9Pz';
+
+export const FALLBACK_BACKGROUNDS = [
+  '/backgrounds/DSC_4718.JPG',
+  '/backgrounds/DSC_5018.JPG',
+  '/backgrounds/DSC_5027.JPG',
+  '/backgrounds/DSC_5028.JPG',
+  '/backgrounds/DSC_5037.JPG',
+  '/backgrounds/DSC_5047.JPG',
+  '/backgrounds/DSC_5132.JPG',
+  '/backgrounds/DSC_5155.JPG',
+];
+
 export const SOCIAL_LINKS = {
   youtube: 'https://www.youtube.com/@AtropinaDeathMetal',
   instagram: 'https://www.instagram.com/atropina_deathmetal/',
