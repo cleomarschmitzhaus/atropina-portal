@@ -97,7 +97,7 @@ export default function HistoriaPage() {
           </p>
 
           <p>
-            Dando seguimento à trajetória, o baterista <strong>Jonas Jacobs</strong> assumiu as baquetas, marcando presença nos shows de estrada e preparando-se para gravar o novo álbum da banda, intitulado <em>A Liturgia da Morte</em>, com início das gravações marcado para este final de ano.
+            Dando seguimento à trajetória, o baterista <strong>Jonas Jacobs</strong> assumiu as baquetas, marcando presença nos shows de estrada e preparando-se para gravar o novo álbum da banda, intitulado <em>Normose A Liturgia da Morte</em>, com início das gravações marcado para este final de ano.
           </p>
 
           <div className="mt-8 pt-6 border-t border-[#262626] bg-black/40 p-4 border-l-2 border-[#c8ff00]">

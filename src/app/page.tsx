@@ -40,9 +40,9 @@ export default function Home() {
         </div>
 
         {/* Bottom Banner Bar */}
-        <div className="mt-16 z-10 w-full max-w-lg px-6 text-center select-none hidden md:block">
+        <div className="mt-16 z-10 w-full max-w-xl px-6 text-center select-none hidden md:block">
           <div className="text-xs font-mono text-[#c8ff00] font-bold tracking-[0.2em] uppercase text-glow-lime bg-black/40 py-2 px-4 border border-[#c8ff00]/20 rounded-sm">
-            NOVO ÁLBUM: &quot;A LITURGIA DA MORTE&quot; disponível em breve
+            NOVO ÁLBUM: &quot;NORMOSE A LITURGIA DA MORTE&quot; disponível em breve
           </div>
         </div>
       </section>
